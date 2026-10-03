@@ -1,12 +1,13 @@
 #include<iostream>
+#include <fstream>
 using namespace std;
 /* ****************************************************************************** 
   32-bit 주소 사용
 cache의 조건 : address = 32bit, Cache size = 32KB, Block size = 64B, Direct Mapped
 
    ****************************************************************************** */
-unsigned int hit_count = 0;
-unsigned int miss_count = 0;
+
+
 
 struct CacheLine {
   bool valid_bit;
@@ -36,21 +37,25 @@ void accessCache(unsigned int address, CacheLine cache[], unsigned int &hit_coun
 }
 int main(){
 
+  ifstream traceFile("trace.txt");
+  if(!traceFile.is_open()){
+    cout << "Filed to open trace file." << endl; return 1;
+  }
+
+  unsigned int hit_count = 0;
+  unsigned int miss_count = 0;
+
   CacheLine cache[512];
   //처음 cache에는 아무것도 들어있지 않음 -> valid = false;
   for(int i = 0; i < 512; ++i){
     cache[i].valid_bit = false;
   }
   
-  unsigned int addresses[] = {
-    0x12345678,
-    0x1234567c,
-    0x12345680,
-    0x12345678
-  };
-  for(auto a : addresses){
-    accessCache(a, cache, hit_count, miss_count);
+  unsigned int address;
+  while(traceFile >> hex >> address){
+    accessCache(address, cache, hit_count, miss_count);
   }
+
  cout << "Total Accesses : " << hit_count + miss_count << endl;
  cout << "Hits           : " << hit_count << endl;
  cout << "Misses         : " << miss_count << endl;
