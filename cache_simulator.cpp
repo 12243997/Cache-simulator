@@ -5,11 +5,35 @@ using namespace std;
 cache의 조건 : address = 32bit, Cache size = 32KB, Block size = 64B, Direct Mapped
 
    ****************************************************************************** */
+unsigned int hit_count = 0;
+unsigned int miss_count = 0;
+
 struct CacheLine {
   bool valid_bit;
   unsigned int tag;
 };
 
+void accessCache(unsigned int address, CacheLine cache[], unsigned int &hit_count, unsigned int &miss_count) {
+  unsigned int offset = address & 0x3F;
+  unsigned int index = (address >> 6) & 0x1ff;
+  unsigned int tag = address >> 15;
+
+  if(cache[index].valid_bit && cache[index].tag == tag){
+    cout << "Address: 0x" << hex << address
+     << " | Tag: 0x" << tag
+     << " | Index: " << dec << index
+     << " | Offset: " << offset << " | Hit" << endl;
+     hit_count++;
+  }else {
+    cout << "Address: 0x" << hex << address
+     << " | Tag: 0x" << tag
+     << " | Index: " << dec << index
+     << " | Offset: " << offset << " | Miss" << endl;
+     miss_count++;
+     cache[index].valid_bit = true;
+     cache[index].tag = tag;
+  }
+}
 int main(){
 
   CacheLine cache[512];
@@ -17,50 +41,16 @@ int main(){
   for(int i = 0; i < 512; ++i){
     cache[i].valid_bit = false;
   }
-  int hit_count = 0;
-  int miss_count = 0;
+  
   unsigned int addresses[] = {
     0x12345678,
     0x1234567c,
     0x12345680,
     0x12345678
   };
-  /*unsigned int offset = address & 0x3F;
-  unsigned int index = (address >> 6) & 0x1FF;
-  unsigned int tag = (address >> 15);
-  cout << "Address = 0x" << hex << address << endl;
-  cout << "Offset  = " << dec << offset << endl;
-  cout << "Index   = " << dec << index << endl;
-  cout << "tag     = " << dec << tag << endl;*/
-
-  /*if (cache[index].valid_bit && cache[index].tag == tag) {
-    cout << "HIT" << endl;
-  }else { 
-    cout << "Miss" << endl;
-    cache[index].valid_bit = true;
-    cache[index].tag = tag;
-  }*/
- for(auto a : addresses){
-  unsigned int offset = a & 0x3F;
-  unsigned int index = (a >> 6) & 0x1FF;
-  unsigned int tag = a >> 15;
-  if(cache[index].valid_bit && cache[index].tag == tag){
-    
-    cout << "Address: 0x" << hex << a
-     << " | Tag: 0x" << tag
-     << " | Index: " << dec << index
-     << " | Offset: " << offset << " | Hit" << endl;
-    hit_count++;
-  }else{
-    cache[index].valid_bit = true;
-    cache[index].tag = tag;
-    cout << "Address: 0x" << hex << a
-     << " | Tag: 0x" << tag
-     << " | Index: " << dec << index
-     << " | Offset: " << offset << " | Miss" << endl;
-    miss_count++;
+  for(auto a : addresses){
+    accessCache(a, cache, hit_count, miss_count);
   }
- }
  cout << "Total Accesses : " << hit_count + miss_count << endl;
  cout << "Hits           : " << hit_count << endl;
  cout << "Misses         : " << miss_count << endl;
