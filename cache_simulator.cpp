@@ -4,8 +4,8 @@
 using namespace std;
 
 const unsigned int CACHE_SIZE = 32 * 1024;
-const unsigned int BLOCK_SIZE = 64;
-const unsigned int WAYS = 4;
+const unsigned int BLOCK_SIZE = 128;
+const unsigned int WAYS = 1;
 const unsigned int CACHE_LINES = CACHE_SIZE / BLOCK_SIZE;
 const unsigned int NUM_SETS = CACHE_LINES / WAYS;
 const unsigned int OFFSET_BITS = log2(BLOCK_SIZE);
