@@ -1,0 +1,5 @@
+Associativity,Hits,Misses,MissRate
+1,0,1000,1.0
+2,0,1000,1.0
+4,0,1000,1.0
+8,995,5,0.005
