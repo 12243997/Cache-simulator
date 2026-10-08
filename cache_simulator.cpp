@@ -17,7 +17,7 @@ struct CacheLine {
   unsigned int last_used = 0;
 };
 
-void accessCache(unsigned int address, CacheLine cache [][WAYS], unsigned int &access_counter, unsigned int &hit_count, unsigned int &miss_count) {
+void accessCache(char operation, unsigned int address, CacheLine cache [][WAYS], unsigned int &access_counter, unsigned int &hit_count, unsigned int &miss_count, unsigned int &memory_write){
   access_counter++;
   unsigned int offset = address & (BLOCK_SIZE - 1);
   unsigned int set_index = (address >> OFFSET_BITS) & (NUM_SETS - 1);
@@ -30,6 +30,8 @@ void accessCache(unsigned int address, CacheLine cache [][WAYS], unsigned int &a
       hit_count++;
       hit = true;
       cache[set_index][ways].last_used = access_counter;
+
+      if(operation == 'W') { memory_write++; }
       break;
     }
   }
@@ -47,7 +49,9 @@ void accessCache(unsigned int address, CacheLine cache [][WAYS], unsigned int &a
         << " | Index: " << dec << set_index
         << " | Offset: " << offset << " | Miss" << " | Inserted Way: " << ways << endl;
         cache[set_index][ways].tag = tag; cache[set_index][ways].valid_bit = true; 
-        cache[set_index][ways].last_used = access_counter; return;
+        cache[set_index][ways].last_used = access_counter;
+        
+        if(operation == 'W') { memory_write++; } return;
       }
     }
     //LRU수행
@@ -66,6 +70,8 @@ void accessCache(unsigned int address, CacheLine cache [][WAYS], unsigned int &a
      << endl;
     cache[set_index][changed_way].tag = tag;
     cache[set_index][changed_way].last_used = access_counter;
+
+    if(operation == 'W') { memory_write++; }
   }
 }
 
@@ -79,6 +85,7 @@ int main(){
   unsigned int access_counter = 0;
   unsigned int hit_count = 0;
   unsigned int miss_count = 0;
+  unsigned int memory_write = 0;
 
   CacheLine cache[NUM_SETS][WAYS];
   //처음 cache에는 아무것도 들어있지 않음 -> valid = false;
@@ -88,15 +95,17 @@ int main(){
     }
   }
 
+  char operation;
   unsigned int address;
-  while(traceFile >> hex >> address){
-    accessCache(address, cache, access_counter, hit_count, miss_count);
+  while(traceFile >> operation >> hex >> address){
+    accessCache(operation, address, cache, access_counter, hit_count, miss_count, memory_write);
   }
 
  cout << "Total Accesses : " << hit_count + miss_count << endl;
  cout << "Hits           : " << hit_count << endl;
  cout << "Misses         : " << miss_count << endl;
  cout << "Miss Rate      : " << (float)miss_count / (hit_count + miss_count) << endl;
+ cout << "Memory Writes. : " << memory_write << endl;
 }
 
 /*
