@@ -5,14 +5,16 @@ using namespace std;
 
 const unsigned int CACHE_SIZE = 32 * 1024;
 const unsigned int BLOCK_SIZE = 64; //6개의 bit로 표현 가능 0 - 5
-const unsigned int WAYS = 8; 
+const unsigned int WAYS = 1; 
 const unsigned int CACHE_LINES = CACHE_SIZE / BLOCK_SIZE;
 const unsigned int NUM_SETS = CACHE_LINES / WAYS;
 const unsigned int OFFSET_BITS = log2(BLOCK_SIZE);
 const unsigned int INDEX_BITS = log2(NUM_SETS);
+const bool WRITE_BACK = false;
 
 struct CacheLine {
   bool valid_bit;
+  bool dirty_bit;
   unsigned int tag;
   unsigned int last_used = 0;
 };
@@ -31,7 +33,13 @@ void accessCache(char operation, unsigned int address, CacheLine cache [][WAYS],
       hit = true;
       cache[set_index][ways].last_used = access_counter;
 
-      if(operation == 'W') { memory_write++; }
+      if(operation == 'W') { 
+        if(WRITE_BACK){
+        cache[set_index][ways].dirty_bit = true;
+        }else{
+          memory_write++;
+        }
+       }
       break;
     }
   }
@@ -48,10 +56,22 @@ void accessCache(char operation, unsigned int address, CacheLine cache [][WAYS],
         << " | Tag: 0x" << tag
         << " | Index: " << dec << set_index
         << " | Offset: " << offset << " | Miss" << " | Inserted Way: " << ways << endl;
+
         cache[set_index][ways].tag = tag; cache[set_index][ways].valid_bit = true; 
         cache[set_index][ways].last_used = access_counter;
-        
-        if(operation == 'W') { memory_write++; } return;
+
+        if(operation == 'W') { 
+          if(WRITE_BACK) {
+            cache[set_index][ways].dirty_bit = true;
+          }else {
+            cache[set_index][ways].dirty_bit = false; //write-through에서는 dirty bit가 항상 false라고 생각
+            memory_write++;
+          }
+        }else{
+          if(WRITE_BACK) {
+            cache[set_index][ways].dirty_bit = false;
+          }
+        } return;
       }
     }
     //LRU수행
@@ -68,10 +88,23 @@ void accessCache(char operation, unsigned int address, CacheLine cache [][WAYS],
      << " | Miss"
      << " | Replaced Way: " << changed_way
      << endl;
+
+    if(WRITE_BACK && cache[set_index][changed_way].dirty_bit == true) {memory_write++;} //write-back이므로 쫓겨날때 작성
     cache[set_index][changed_way].tag = tag;
     cache[set_index][changed_way].last_used = access_counter;
-
-    if(operation == 'W') { memory_write++; }
+    
+    //새로 들어오는 line에 대한 처리
+    if(operation == 'W') {
+      if(WRITE_BACK) {
+      cache[set_index][changed_way].dirty_bit = true;
+      }else{
+        cache[set_index][changed_way].dirty_bit = false;
+        memory_write++;
+      }
+    } else {
+      cache[set_index][changed_way].dirty_bit = false;
+    }
+    
   }
 }
 
@@ -92,6 +125,7 @@ int main(){
   for(int i = 0; i < NUM_SETS; ++i){
     for(int j = 0; j < WAYS; ++j){
       cache[i][j].valid_bit = false;
+      cache[i][j].dirty_bit = false; //write-back 구현을 위해
     }
   }
 
@@ -105,7 +139,7 @@ int main(){
  cout << "Hits           : " << hit_count << endl;
  cout << "Misses         : " << miss_count << endl;
  cout << "Miss Rate      : " << (float)miss_count / (hit_count + miss_count) << endl;
- cout << "Memory Writes. : " << memory_write << endl;
+ cout << "Memory Writes : " << memory_write << endl;
 }
 
 /*
