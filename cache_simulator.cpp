@@ -5,12 +5,16 @@ using namespace std;
 
 const unsigned int CACHE_SIZE = 32 * 1024;
 const unsigned int BLOCK_SIZE = 64; //6개의 bit로 표현 가능 0 - 5
+
 const unsigned int WAYS = 1; 
 const unsigned int CACHE_LINES = CACHE_SIZE / BLOCK_SIZE;
+
 const unsigned int NUM_SETS = CACHE_LINES / WAYS;
 const unsigned int OFFSET_BITS = log2(BLOCK_SIZE);
 const unsigned int INDEX_BITS = log2(NUM_SETS);
+
 const bool WRITE_BACK = false;
+const bool WRITE_ALLOCATE = false;
 
 struct CacheLine {
   bool valid_bit;
@@ -50,6 +54,9 @@ void accessCache(char operation, unsigned int address, CacheLine cache [][WAYS],
       << " | Offset: " << offset << " | Hit" << endl; return;
   } else {
     miss_count++;
+    if (operation == 'W' && WRITE_ALLOCATE == false) {
+      memory_write++; return;
+    }
     for(int ways = 0; ways < WAYS; ++ways){
       if(!cache[set_index][ways].valid_bit){
         cout << "Address: 0x" << hex << address
