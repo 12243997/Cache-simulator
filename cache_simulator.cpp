@@ -27,8 +27,8 @@ const unsigned int L1_HIT_TIME = 1;
 const unsigned int L2_HIT_TIME = 10;
 const unsigned int MEMORY_PENALTY = 100;
 
-const bool WRITE_BACK = false;
-const bool WRITE_ALLOCATE = false;
+const bool WRITE_BACK = true;
+const bool WRITE_ALLOCATE = true;
 
 struct CacheLine {
   bool valid_bit;
@@ -49,115 +49,24 @@ CacheLine& getLine(Cache &cache, unsigned int set_index, unsigned int way) {
   return cache.lines[set_index * cache.ways + way];
 }
 
-//return true -> Cache hit, return false -> Cache miss
-bool  accessCache(char operation, unsigned int address, Cache& cache, unsigned int &access_counter, unsigned int &hit_count, unsigned int &miss_count, unsigned int &memory_write){
-  access_counter++;
-
-  unsigned int offset = address & (BLOCK_SIZE - 1);
-  unsigned int set_index = (address >> OFFSET_BITS) & (cache.num_sets - 1);
-  unsigned int tag = address >> (OFFSET_BITS + cache.index_bits);
-  bool hit = false;
-  
-  for(int ways = 0; ways < cache.ways; ++ways){
-    
-    if(getLine(cache, set_index, ways).valid_bit && getLine(cache, set_index, ways).tag == tag){
-      hit_count++;
-      hit = true;
-      getLine(cache, set_index, ways).last_used = access_counter;
-
-      if(operation == 'W') { 
-        if(WRITE_BACK){
-        getLine(cache, set_index, ways).dirty_bit = true;
-        }else{
-          memory_write++;
-        }
-       }
-      break;
-    }
-  }
-  if(hit) {
-      cout << "Address: 0x" << hex << address
-      << " | Tag: 0x" << tag
-      << " | Index: " << dec << set_index
-      << " | Offset: " << offset << " | Hit" << endl; return true;
-  } else {
-    miss_count++;
-    if (operation == 'W' && WRITE_ALLOCATE == false) {
-      memory_write++; return false;
-    }
-    for(int ways = 0; ways < cache.ways; ++ways){
-      if(!getLine(cache, set_index, ways).valid_bit){
-        cout << "Address: 0x" << hex << address
-        << " | Tag: 0x" << tag
-        << " | Index: " << dec << set_index
-        << " | Offset: " << offset << " | Miss" << " | Inserted Way: " << ways << endl;
-
-        getLine(cache, set_index, ways).tag = tag; getLine(cache, set_index, ways).valid_bit = true; 
-        getLine(cache, set_index, ways).last_used = access_counter;
-
-        if(operation == 'W') { 
-          if(WRITE_BACK) {
-            getLine(cache, set_index, ways).dirty_bit = true;
-          }else {
-            getLine(cache, set_index, ways).dirty_bit = false; //write-through에서는 dirty bit가 항상 false라고 생각
-            memory_write++;
-          }
-        }else{
-          if(WRITE_BACK) {
-            getLine(cache, set_index, ways).dirty_bit = false;
-          }
-        } return false;
-      }
-    }
-    //LRU수행
-    int changed_way = 0;
-    for(int ways = 1; ways < cache.ways; ++ways){
-      if(getLine(cache, set_index, changed_way).last_used > getLine(cache, set_index, ways).last_used){
-        changed_way = ways;
-      }
-    }
-    cout << "Address: 0x" << hex << address
-     << " | Tag: 0x" << tag
-     << " | Index: " << dec << set_index
-     << " | Offset: " << offset
-     << " | Miss"
-     << " | Replaced Way: " << changed_way
-     << endl;
-
-    if(WRITE_BACK && getLine(cache, set_index, changed_way).dirty_bit == true) {memory_write++;} //write-back이므로 쫓겨날때 작성
-    getLine(cache, set_index, changed_way).tag = tag;
-    getLine(cache, set_index, changed_way).last_used = access_counter;
-    
-    //새로 들어오는 line에 대한 처리
-    if(operation == 'W') {
-      if(WRITE_BACK) {
-      getLine(cache, set_index, changed_way).dirty_bit = true;
-      }else{
-        getLine(cache, set_index, changed_way).dirty_bit = false;
-        memory_write++;
-      }
-    } else {
-      getLine(cache, set_index, changed_way).dirty_bit = false;
-    }
-    return false;
-  }
-}
-
-bool lookupCache(unsigned int address, Cache &cache, unsigned int &access_counter) {
+int lookupCache(unsigned int address, Cache &cache, unsigned int &access_counter) {
   access_counter++;
 
   unsigned int set_index = (address >> OFFSET_BITS) & (cache.num_sets - 1);
   unsigned int tag = address >> (OFFSET_BITS + cache.index_bits);
 
   for(int way = 0; way < cache.ways; ++way) {
+    // hit 일 때
     if(getLine(cache, set_index, way).valid_bit && getLine(cache, set_index, way).tag == tag) {
       getLine(cache, set_index, way).last_used = access_counter;
-      return true;
+
+      return way;
     }
   }
+  return -1;
 }
 
-void insertCache(unsigned int address, Cache& cache, unsigned int access_counter) {
+int insertCache(unsigned int address, Cache& cache, unsigned int access_counter) {
   unsigned int set_index = (address >> OFFSET_BITS) & (cache.num_sets - 1);
   unsigned int tag = address >> (OFFSET_BITS + cache.index_bits);
 
@@ -166,7 +75,7 @@ void insertCache(unsigned int address, Cache& cache, unsigned int access_counter
       getLine(cache, set_index, way).valid_bit = true;
       getLine(cache, set_index, way).dirty_bit = false;
       getLine(cache, set_index, way).tag = tag;
-      getLine(cache, set_index, way).last_used = access_counter; return;
+      getLine(cache, set_index, way).last_used = access_counter; return way;
     }
   }
 
@@ -182,6 +91,8 @@ void insertCache(unsigned int address, Cache& cache, unsigned int access_counter
   getLine(cache, set_index, changed_way).dirty_bit = false;
   getLine(cache, set_index, changed_way).tag = tag;
   getLine(cache, set_index, changed_way).last_used = access_counter;
+  
+  return changed_way;
 }
 int main(){
 
@@ -224,24 +135,43 @@ int main(){
   unsigned int address;
   while(traceFile >> operation >> hex >> address){
     
-    bool l1_hit = lookupCache(address, l1, access_counter);
+    int l1_hit_way = lookupCache(address, l1, access_counter);
+    unsigned int l1_set_index = (address >> OFFSET_BITS) & (l1.num_sets - 1);
 
-    if(l1_hit) {
+    if(l1_hit_way != -1) {
       l1_hit_count++;
+
+      if(operation == 'W' && WRITE_BACK) {
+        getLine(l1, l1_set_index, l1_hit_way).dirty_bit = true;
+      }
     } else {
       l1_miss_count++;
 
-      bool l2_hit = lookupCache(address, l2, access_counter);
+      int l2_hit_way = lookupCache(address, l2, access_counter);
 
-      if(l2_hit) {
+      if(l2_hit_way != -1) {
         l2_hit_count++;
-        insertCache(address, l1, access_counter);
+        int inserted_way = insertCache(address, l1, access_counter);
+
+        if(operation == 'W' && WRITE_ALLOCATE && WRITE_BACK) {
+          getLine(l1, l1_set_index, inserted_way).dirty_bit = true;
+        }
       } else {
         l2_miss_count++;
         memory_access++;
 
         insertCache(address, l2, access_counter);
-        insertCache(address, l1, access_counter);
+
+        int inserted_way = insertCache(address, l1, access_counter);
+
+        if(operation == 'W' && WRITE_ALLOCATE && WRITE_BACK) {
+          getLine(l1, l1_set_index, inserted_way).dirty_bit = true;
+        }
+        cout << "Write Miss -> L1 Insert"
+     << " | Way: " << inserted_way
+     << " | Dirty: "
+     << getLine(l1, l1_set_index, inserted_way).dirty_bit
+     << endl;
       }
     }
   }
@@ -273,6 +203,8 @@ int main(){
 
   cout << "\n[Performance]" << endl;
   cout << "AMAT : " << amat << " cycles" << endl;
+
+  
 }
 
 /*
