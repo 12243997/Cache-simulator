@@ -25,6 +25,9 @@ A simple cache simulator implemented in C++ for studyingcache memory organizatio
 - Write-allocate policy
 - No-write-allocate policy
 - Memory write traffic measurement
+- L1 / L2 multi-level cache hierarchy
+- L2-to-L1 block insertion on L2 cache hits
+- Local and global miss rate analysis
 
 ## Experimental Results
 
@@ -161,9 +164,36 @@ With No-write-allocate, the write miss updates main memory without loading the b
 
 This experiment demonstrates that the allocation policy determines whether a block is brought into the cache after a write miss and can affect subsequent cache hit/miss behavior.
 
+### Multi-Level Cache
+
+#### Configuration
+
+| Cache | Size | Block Size | Associativity |
+|------|------:|-----------:|--------------:|
+| L1 | 32 KB | 64 B | 4-way |
+| L2 | 256 KB | 64 B | 8-way |
+
+#### Cache Hierarchy
+
+CPU memory accesses are first checked in the L1 cache.
+
+- L1 hit : the access is completed in L1.
+- L1 miss: the L2 cache is accessed.
+- L2 hit: the block is inserted into L1.
+- L2 miss: the block is fetched from memory and inserted into both L2 and L1.
+
+#### Miss Rate
+
+The L2 local miss rate is calculated as:
+
+L2 Local Miss Rate = L2 Misses / L2 Accesses
+
+The L2 global miss rate is calculated as:
+
+L2 Global Miss Rate = L2 Misses / Total CPU Accesses
+
 ## Future Work
 
-- Multi-level cache (L1 / L2)
-- Local and global miss rate analysis
 - AMAT calculation
-- Additional cache performance experiments
+- Integration of write policies into the multi-level cache
+- Additional multi-level cache performance experiments
