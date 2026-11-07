@@ -28,6 +28,7 @@ A simple cache simulator implemented in C++ for studyingcache memory organizatio
 - L1 / L2 multi-level cache hierarchy
 - L2-to-L1 block insertion on L2 cache hits
 - Local and global miss rate analysis
+- Average Memory Access Time (AMAT) calculation
 
 ## Experimental Results
 
@@ -194,6 +195,5 @@ L2 Global Miss Rate = L2 Misses / Total CPU Accesses
 
 ## Future Work
 
-- AMAT calculation
 - Integration of write policies into the multi-level cache
 - Additional multi-level cache performance experiments

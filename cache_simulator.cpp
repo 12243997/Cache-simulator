@@ -17,9 +17,15 @@ const unsigned int L2_WAYS = 8;
 const unsigned int L2_CACHE_LINES = L2_CACHE_SIZE / BLOCK_SIZE;
 const unsigned int L2_NUM_SETS = L2_CACHE_LINES / L2_WAYS;
 
+// address
 const unsigned int OFFSET_BITS = log2(BLOCK_SIZE);
 const unsigned int L1_INDEX_BITS = log2(L1_NUM_SETS);
 const unsigned int L2_INDEX_BITS = log2(L2_NUM_SETS);
+
+// AMAT
+const unsigned int L1_HIT_TIME = 1;
+const unsigned int L2_HIT_TIME = 10;
+const unsigned int MEMORY_PENALTY = 100;
 
 const bool WRITE_BACK = false;
 const bool WRITE_ALLOCATE = false;
@@ -194,6 +200,7 @@ int main(){
   unsigned int memory_write = 0;
   unsigned int access_counter = 0;
   
+  
 
   CacheLine l1_lines[L1_NUM_SETS * L1_WAYS];
   CacheLine l2_lines[L2_NUM_SETS * L2_WAYS];
@@ -239,7 +246,15 @@ int main(){
     }
   }
 
- cout << "\n===== Cache Simulation Results =====" << endl;
+  float l1_miss_rate = (float)l1_miss_count / (l1_hit_count + l1_miss_count);
+
+  float l2_local_miss_rate = 0.0;
+  if(l2_hit_count + l2_miss_count > 0) {
+    l2_local_miss_rate = (float)l2_miss_count /(l2_hit_count + l2_miss_count);
+  }
+  float amat = L1_HIT_TIME + l1_miss_rate * (L2_HIT_TIME + l2_local_miss_rate * MEMORY_PENALTY);
+
+  cout << "\n===== Cache Simulation Results =====" << endl;
 
   cout << "\n[L1 Cache]" << endl;
   cout << "Total Accesses : " << l1_hit_count + l1_miss_count << endl;
@@ -255,6 +270,9 @@ int main(){
   cout << "Global Miss Rate : " << (float)l2_miss_count / (l1_hit_count + l1_miss_count) << endl;
   cout << "\n[Memory]" << endl;
   cout << "Memory Accesses : " << memory_access << endl;
+
+  cout << "\n[Performance]" << endl;
+  cout << "AMAT : " << amat << " cycles" << endl;
 }
 
 /*
